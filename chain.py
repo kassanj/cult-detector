@@ -9,14 +9,17 @@ No optimizations — just the core pattern clearly laid out:
 5. Parse structured output
 """
 
-import os
-from dotenv import load_dotenv
+from dotenv import load_dotenv # load environment variables
 
-from langchain_openai import ChatOpenAI, OpenAIEmbeddings
-from langchain_community.vectorstores import Chroma
-from langchain_core.prompts import ChatPromptTemplate
-from pydantic import BaseModel, Field
+from langchain_openai import ChatOpenAI, OpenAIEmbeddings # LLM
+from langchain_community.vectorstores import Chroma # vector store
+from langchain_core.prompts import ChatPromptTemplate # prompt
+from pydantic import BaseModel, Field # output schema
+from langchain_community.cache import InMemoryCache # cache
+from langchain.globals import set_llm_cache # to set the cache
 
+# set the cache
+set_llm_cache(InMemoryCache())
 load_dotenv()
 
 CHROMA_PATH = "./chroma_db"
@@ -122,7 +125,7 @@ def analyze(description: str) -> dict:
     # Set up the LLM
     llm = ChatOpenAI(
         model="gpt-4o",
-        temperature=0.1,   # low = consistent tone
+        temperature=0.1,   # low = consistent tone, high = more creative
     ).with_structured_output(CultAnalysis)
 
     # Set up the prompt
