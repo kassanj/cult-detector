@@ -8,7 +8,9 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from chain import analyze_async
+from fastapi.responses import StreamingResponse
+import json
+from chain import analyze, analyze_stream
 
 app = FastAPI(
     title="Is This a Cult?",
@@ -28,7 +30,7 @@ app.add_middleware(
 # ── REQUEST SCHEMA ────────────────────────────────────────────────
 class AnalysisRequest(BaseModel):
     description: str
-
+    stream: bool = False  # optional flag
 
 # ── ROUTES ───────────────────────────────────────────────────────
 @app.get("/")
@@ -39,20 +41,47 @@ def root():
 @app.get("/health")
 def health():
     return {"status": "healthy"}
-
+    
 
 @app.post("/analyze")
 async def analyze_endpoint(request: AnalysisRequest):
-    # Basic input validation
+   
     if not request.description or len(request.description.strip()) < 10:
         raise HTTPException(status_code=400, detail="Description too short.")
 
     if len(request.description) > 2000:
-        raise HTTPException(status_code=400, detail="Description too long. Max 2000 chars.")
+        raise HTTPException(status_code=400, detail="Description too long.")
 
-    # Run the chain and return the result
+    if request.stream:
+        async def stream_generator():
+            async for chunk in analyze_stream(request.description):
+                yield f"data: {json.dumps({'chunk': chunk})}\n\n"
+            yield "data: [DONE]\n\n"
+
+        return StreamingResponse(
+            stream_generator(),
+            media_type="text/event-stream"
+        )
+
     try:
-        result = await analyze_async(request.description)
+        result = analyze(request.description)
         return result
-    except Exception as e:      
+    except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# @app.post("/analyze")
+# async def analyze_endpoint(request: AnalysisRequest):
+#     # Basic input validation
+#     if not request.description or len(request.description.strip()) < 10:
+#         raise HTTPException(status_code=400, detail="Description too short.")
+
+#     if len(request.description) > 2000:
+#         raise HTTPException(status_code=400, detail="Description too long. Max 2000 chars.")
+
+#     # Run the chain and return the result
+#     try:
+#         result = await analyze_async(request.description)
+#         return result
+#     except Exception as e:      
+#         raise HTTPException(status_code=500, detail=str(e))

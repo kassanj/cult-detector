@@ -3,8 +3,13 @@ Quick CLI tool for testing without spinning up the server.
 Usage: python3 main.py
 """
 
-from chain import analyze
+import asyncio
+from chain import analyze, analyze_stream
 import json
+
+async def test_stream():
+    async for chunk in analyze_stream("My startup CEO is called The Visionary..."):
+        print(chunk, end="", flush=True)
 
 def main():
     print("\n" + "="*60)
@@ -52,3 +57,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+    # asyncio.run(test_stream())

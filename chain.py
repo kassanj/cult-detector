@@ -133,6 +133,7 @@ def build_chain():
     llm = ChatOpenAI(
         model="gpt-4o",
         temperature=0.1,
+        streaming=True,
     ).with_structured_output(CultAnalysis)
 
     # Set up the prompt
@@ -179,31 +180,46 @@ async def analyze_async(description: str) -> dict:
     """
     Takes a description, returns cult analysis.
     """
-
     chain = build_chain()
     analysis = await chain.ainvoke({"description": description})
     if isinstance(analysis, CultAnalysis):
         return analysis.model_dump()
     return analysis
- 
+
+# ── STEP 6: RUN THE STREAMING CHAIN ──────────────────────────────
+# Only used for streaming responses in the API
+async def analyze_stream(description: str) -> AsyncIterator[str]:
+    """
+    Streams tokens as they generate.
+    Used when request.stream = True in app.py.
+    """
+    chain = build_chain()
+    async for chunk in chain.astream({"description": description}):
+        if isinstance(chunk, CultAnalysis):
+            yield chunk.model_dump_json()
+        else:
+            yield str(chunk)
+        await asyncio.sleep(0.03)  # ← add this — 30ms delay between chunks
 
 # ── QUICK TEST ────────────────────────────────────────────────────
 if __name__ == "__main__":
+
+
     test = "My startup has weekly all-hands where the CEO shares his vision \
             for humanity. Questioning the roadmap is called 'not being a \
             builder mindset'. We work weekends because we're 'changing the world'."
 
-    print("Analyzing...\n")
-    result = analyze(test)
+    # print("Analyzing...\n")
+    # result = analyze(test)
 
-    print(f"CULT SCORE: {result['score']}/100")
-    print(f"VERDICT:    {result['verdict']}")
-    print(f"RESEMBLES:  {result['closest_cult_match']}")
-    print(f"ADVICE:     {result['advice']}")
-    print(f"\nINDICATORS:")
-    for i in result['indicators_found']:
-        print(f"  [{i['severity'].upper()}] {i['indicator']}")
-        print(f"  Source: {i['source']}")
+    # print(f"CULT SCORE: {result['score']}/100")
+    # print(f"VERDICT:    {result['verdict']}")
+    # print(f"RESEMBLES:  {result['closest_cult_match']}")
+    # print(f"ADVICE:     {result['advice']}")
+    # print(f"\nINDICATORS:")
+    # for i in result['indicators_found']:
+    #     print(f"  [{i['severity'].upper()}] {i['indicator']}")
+    #     print(f"  Source: {i['source']}")
 
     # print("Testing sync version...\n")
     # result = analyze(test)
@@ -215,3 +231,12 @@ if __name__ == "__main__":
     # print(f"ASYNC → Score: {result_async['score']}/100 | {result_async['verdict']}\n")
  
     # print("Both versions return identical results — difference is under the hood.")
+
+    # print("\nTesting streaming version...\n")
+
+    # async def test_stream():
+    #     async for chunk in analyze_stream(test):
+    #         print(chunk, end="", flush=True)
+    #     print()  # newline at the end
+
+    # asyncio.run(test_stream())
