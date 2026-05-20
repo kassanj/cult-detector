@@ -8,7 +8,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from chain import analyze
+from chain import analyze_async
 
 app = FastAPI(
     title="Is This a Cult?",
@@ -42,7 +42,7 @@ def health():
 
 
 @app.post("/analyze")
-def analyze_endpoint(request: AnalysisRequest):
+async def analyze_endpoint(request: AnalysisRequest):
     # Basic input validation
     if not request.description or len(request.description.strip()) < 10:
         raise HTTPException(status_code=400, detail="Description too short.")
@@ -52,7 +52,7 @@ def analyze_endpoint(request: AnalysisRequest):
 
     # Run the chain and return the result
     try:
-        result = analyze(request.description)
+        result = await analyze_async(request.description)
         return result
-    except Exception as e:
+    except Exception as e:      
         raise HTTPException(status_code=500, detail=str(e))

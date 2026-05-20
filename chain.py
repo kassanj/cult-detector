@@ -9,6 +9,8 @@ No optimizations — just the core pattern clearly laid out:
 5. Parse structured output
 """
 
+import asyncio
+from typing import AsyncIterator # for asyncio
 from dotenv import load_dotenv # load environment variables
 
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings # LLM
@@ -84,7 +86,11 @@ def get_retriever():
     )
 
     # as_retriever() turns the vector store into something the chain can call
+    # search_type="mmr" means use the Maximum Marginal Relevance algorithm to return the most relevant documents
+    # feeding the model a diverse set of source documents results in more comprehensive, well-rounded, and informative answers
     # k=6 means return the 6 most relevant documents
+    # fetch_k=20 means fetch 20 documents from the vector store
+    # lambda_mult=0.7 means use 0.7 as the lambda multiplier
     retriever = vectorstore.as_retriever(
         # search_kwargs={"k": 6}
         search_type="mmr",
@@ -111,6 +117,7 @@ def format_docs(docs) -> str:
 
 
 # ── STEP 5: BUILD AND RUN THE CHAIN ──────────────────────────────
+# Only used for testing
 def analyze(description: str) -> dict:
     """
     Main function — takes a description, returns cult analysis.
@@ -153,6 +160,44 @@ def analyze(description: str) -> dict:
         return analysis.model_dump()
     return analysis
 
+
+# ── STEP 5: ASYNC VERSION (Optimization) ──────────────────────────
+# Only used for the API 
+async def analyze_async(description: str) -> dict:
+    """
+    Async version — use this for the API (app.py).
+    Non-blocking: frees up the thread while waiting for the LLM.
+ 
+    The only real differences from analyze():
+    - async def instead of def
+    - await chain.ainvoke() instead of chain.invoke()
+    """
+
+    retriever = get_retriever()
+    docs = retriever.invoke(description)
+    retrieved_docs = format_docs(docs)
+
+    llm = ChatOpenAI(
+        model="gpt-4o",
+        temperature=0.1, 
+    ).with_structured_output(CultAnalysis)
+
+    prompt = ChatPromptTemplate.from_messages([
+        ("system", SYSTEM_PROMPT),
+        ("human", HUMAN_PROMPT)
+    ])
+
+    chain = prompt | llm
+
+    analysis = await chain.ainvoke({
+        "description": description,
+        "retrieved_docs": retrieved_docs
+    })
+
+    if isinstance(analysis, CultAnalysis):
+        return analysis.model_dump()
+    return analysis
+ 
 
 # ── QUICK TEST ────────────────────────────────────────────────────
 if __name__ == "__main__":
