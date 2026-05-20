@@ -19,7 +19,19 @@ Get back a scored likelihood with cited evidence from cult research literature.
 - **RAG**: ChromaDB vector store with MMR retrieval over curated cult research corpus
 - **LangChain LCEL**: Composable chain with RunnableParallel for performance
 - **LangSmith**: Full observability — every run traced, latency per step, token costs
+- **Streaming**: Token-by-token streaming via FastAPI SSE
 - **Structured output**: Pydantic schema enforced via JsonOutputParser
+- **Caching**: Semantic cache prevents redundant LLM calls
+
+## Performance Optimizations
+
+| Optimization | Implementation | Impact |
+|---|---|---|
+| Streaming | `chain.astream()` | Low perceived latency |
+| MMR retrieval | `search_type="mmr"` | Diverse, non-redundant docs |
+| Semantic cache | `InMemoryCache` | Skip LLM on repeat queries |
+| Async execution | `ainvoke` / `astream` | Non-blocking API |
+| Batch embedding | `chunk_size=100` | Fast document ingest |
 
 ## Stack
 
