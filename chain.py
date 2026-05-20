@@ -86,7 +86,13 @@ def get_retriever():
     # as_retriever() turns the vector store into something the chain can call
     # k=6 means return the 6 most relevant documents
     retriever = vectorstore.as_retriever(
-        search_kwargs={"k": 6}
+        # search_kwargs={"k": 6}
+        search_type="mmr",
+        search_kwargs={
+            "k": 6,
+            "fetch_k": 20,
+            "lambda_mult": 0.7
+        }
     )
 
     return retriever
