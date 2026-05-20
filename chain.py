@@ -16,6 +16,7 @@ from dotenv import load_dotenv # load environment variables
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings # LLM
 from langchain_community.vectorstores import Chroma # vector store
 from langchain_core.prompts import ChatPromptTemplate # prompt
+from langchain_core.runnables import RunnableLambda
 from pydantic import BaseModel, Field # output schema
 from langchain_community.cache import InMemoryCache # cache
 from langchain.globals import set_llm_cache # to set the cache
@@ -116,29 +117,22 @@ def format_docs(docs) -> str:
     ])
 
 
-# ── STEP 5: BUILD AND RUN THE CHAIN ──────────────────────────────
-# Only used for testing
-def analyze(description: str) -> dict:
+# ── STEP 5: BUILD THE CHAIN ──────────────────────────────
+def build_chain():
     """
-    Main function — takes a description, returns cult analysis.
+    Builds the chain.
 
-    The flow:
-    description → retriever → format docs → prompt → LLM → parse JSON → return
+    The flow: description → retriever → format docs → prompt → LLM
+    Returns the chain.
     """
 
     # Load the retriever
     retriever = get_retriever()
 
-    # Search ChromaDB for relevant documents
-    docs = retriever.invoke(description)
-
-    # Format them into a string
-    retrieved_docs = format_docs(docs)
-
     # Set up the LLM
     llm = ChatOpenAI(
         model="gpt-4o",
-        temperature=0.1,   # low = consistent tone, high = more creative
+        temperature=0.1,
     ).with_structured_output(CultAnalysis)
 
     # Set up the prompt
@@ -147,53 +141,47 @@ def analyze(description: str) -> dict:
         ("human", HUMAN_PROMPT)
     ])
 
+    # Define a function to retrieve and format the documents
+    def retrieve_and_format(inputs):
+        docs = retriever.invoke(inputs["description"])
+        return {
+            "description": inputs["description"],
+            "retrieved_docs": format_docs(docs)
+        }
+
     # Build the chain using LCEL pipe syntax
-    # Each | passes output of left as input to right
-    chain = prompt | llm
+    # RunnableLambda is used to apply a function to the input
+    # | is used to chain the functions together
+    chain = (
+        RunnableLambda(retrieve_and_format)
+        | prompt
+        | llm
+    )
 
-    analysis = chain.invoke({
-        "description": description,
-        "retrieved_docs": retrieved_docs
-    })
+    return chain
 
+# ── STEP 6: RUN THE SYNCHRONOUS CHAIN ──────────────────────────────
+# Only used for testing
+def analyze(description: str) -> dict:
+    """
+    Takes a description, returns cult analysis.
+    """
+    chain = build_chain()
+    analysis = chain.invoke({"description": description})
     if isinstance(analysis, CultAnalysis):
         return analysis.model_dump()
     return analysis
 
 
-# ── STEP 5: ASYNC VERSION (Optimization) ──────────────────────────
+# ── STEP 6: RUN THE ASYNC CHAIN ──────────────────────────────
 # Only used for the API 
 async def analyze_async(description: str) -> dict:
     """
-    Async version — use this for the API (app.py).
-    Non-blocking: frees up the thread while waiting for the LLM.
- 
-    The only real differences from analyze():
-    - async def instead of def
-    - await chain.ainvoke() instead of chain.invoke()
+    Takes a description, returns cult analysis.
     """
 
-    retriever = get_retriever()
-    docs = retriever.invoke(description)
-    retrieved_docs = format_docs(docs)
-
-    llm = ChatOpenAI(
-        model="gpt-4o",
-        temperature=0.1, 
-    ).with_structured_output(CultAnalysis)
-
-    prompt = ChatPromptTemplate.from_messages([
-        ("system", SYSTEM_PROMPT),
-        ("human", HUMAN_PROMPT)
-    ])
-
-    chain = prompt | llm
-
-    analysis = await chain.ainvoke({
-        "description": description,
-        "retrieved_docs": retrieved_docs
-    })
-
+    chain = build_chain()
+    analysis = await chain.ainvoke({"description": description})
     if isinstance(analysis, CultAnalysis):
         return analysis.model_dump()
     return analysis
@@ -216,3 +204,14 @@ if __name__ == "__main__":
     for i in result['indicators_found']:
         print(f"  [{i['severity'].upper()}] {i['indicator']}")
         print(f"  Source: {i['source']}")
+
+    # print("Testing sync version...\n")
+    # result = analyze(test)
+    # print(f"SYNC  → Score: {result['score']}/100 | {result['verdict']}\n")
+ 
+    # print("Testing async version...\n")
+    # # asyncio.run() creates the event loop needed to run async from a script
+    # result_async = asyncio.run(analyze_async(test))
+    # print(f"ASYNC → Score: {result_async['score']}/100 | {result_async['verdict']}\n")
+ 
+    # print("Both versions return identical results — difference is under the hood.")
