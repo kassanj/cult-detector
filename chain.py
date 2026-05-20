@@ -168,7 +168,17 @@ def analyze(description: str) -> dict:
     Takes a description, returns cult analysis.
     """
     chain = build_chain()
-    analysis = chain.invoke({"description": description})
+    analysis = chain.invoke({
+        "description": description,
+        "config": {
+            "metadata": {
+                "version": "1.0",
+                "project": "cult-detector"
+                "source": "cli"
+            }
+        }
+    })
+
     if isinstance(analysis, CultAnalysis):
         return analysis.model_dump()
     return analysis
@@ -181,7 +191,17 @@ async def analyze_async(description: str) -> dict:
     Takes a description, returns cult analysis.
     """
     chain = build_chain()
-    analysis = await chain.ainvoke({"description": description})
+    analysis = await chain.ainvoke({
+        "description": description,
+        "config": {
+            "metadata": {
+                "version": "1.0",
+                "project": "cult-detector"
+                "source": "api"
+            }
+        }
+    })
+
     if isinstance(analysis, CultAnalysis):
         return analysis.model_dump()
     return analysis
@@ -194,7 +214,17 @@ async def analyze_stream(description: str) -> AsyncIterator[str]:
     Used when request.stream = True in app.py.
     """
     chain = build_chain()
-    async for chunk in chain.astream({"description": description}):
+    async for chunk in chain.astream({
+            "description": description
+            "config": {
+                "metadata": {
+                    "version": "1.0",
+                    "project": "cult-detector"
+                    "source": "stream"
+                }
+            }
+        }):
+
         if isinstance(chunk, CultAnalysis):
             yield chunk.model_dump_json()
         else:
@@ -238,5 +268,4 @@ if __name__ == "__main__":
     #     async for chunk in analyze_stream(test):
     #         print(chunk, end="", flush=True)
     #     print()  # newline at the end
-
     # asyncio.run(test_stream())
