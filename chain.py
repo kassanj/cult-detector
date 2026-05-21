@@ -168,16 +168,16 @@ def analyze(description: str) -> dict:
     Takes a description, returns cult analysis.
     """
     chain = build_chain()
-    analysis = chain.invoke({
-        "description": description,
-        "config": {
+    analysis = chain.invoke(
+        {"description": description},
+        config={
             "metadata": {
                 "version": "1.0",
-                "project": "cult-detector"
-                "source": "cli"
+                "project": "cult-detector",
+                "source": "cli",
             }
-        }
-    })
+        },
+    )
 
     if isinstance(analysis, CultAnalysis):
         return analysis.model_dump()
@@ -191,16 +191,16 @@ async def analyze_async(description: str) -> dict:
     Takes a description, returns cult analysis.
     """
     chain = build_chain()
-    analysis = await chain.ainvoke({
-        "description": description,
-        "config": {
+    analysis = await chain.ainvoke(
+        {"description": description},
+        config={
             "metadata": {
                 "version": "1.0",
-                "project": "cult-detector"
-                "source": "api"
+                "project": "cult-detector",
+                "source": "api",
             }
-        }
-    })
+        },
+    )
 
     if isinstance(analysis, CultAnalysis):
         return analysis.model_dump()
@@ -214,16 +214,16 @@ async def analyze_stream(description: str) -> AsyncIterator[str]:
     Used when request.stream = True in app.py.
     """
     chain = build_chain()
-    async for chunk in chain.astream({
-            "description": description
-            "config": {
-                "metadata": {
-                    "version": "1.0",
-                    "project": "cult-detector"
-                    "source": "stream"
-                }
+    async for chunk in chain.astream(
+        {"description": description},
+        config={
+            "metadata": {
+                "version": "1.0",
+                "project": "cult-detector",
+                "source": "stream",
             }
-        }):
+        },
+    ):
 
         if isinstance(chunk, CultAnalysis):
             yield chunk.model_dump_json()
